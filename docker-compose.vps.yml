@@ -1,0 +1,69 @@
+services:
+  newsblur_web:
+    environment:
+      - NEWSBLUR_DISABLE_SIGNUPS=true
+      - NEWSBLUR_URL=https://news.tinkdeck.com
+    ports: !override
+      - "127.0.0.1:8000:8000"
+
+  newsblur_node:
+    ports: !override
+      - "127.0.0.1:8008:8008"
+
+  imageproxy:
+    image: ghcr.io/willnorris/imageproxy:latest
+    ports: !override
+      - "127.0.0.1:8088:8088"
+
+  nginx:
+    ports: !override
+      - "127.0.0.1:81:81"
+
+  newsblur_db_postgres:
+    ports: !override
+      - "127.0.0.1:5434:5432"
+
+  newsblur_db_redis:
+    ports: !override
+      - "127.0.0.1:6579:6579"
+
+  newsblur_db_elasticsearch:
+    ports: !override
+      - "127.0.0.1:9200:9200"
+      - "127.0.0.1:9300:9300"
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms384m -Xmx384m"
+      - "CLI_JAVA_OPTS="
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - xpack.security.enabled=false
+      - bootstrap.memory_lock=false
+      - indices.breaker.total.use_real_memory=false
+
+  newsblur_db_mongo:
+    ports: !override
+      - "127.0.0.1:29019:29019"
+
+  dejavu:
+    ports: !override
+      - "127.0.0.1:1358:1358"
+
+  haproxy:
+    ports: !override
+      - "80:80"
+      - "443:443"
+      - "127.0.0.1:1936:1936"
+
+  redlib:
+    image: git.ptr.moe/baalajimaestro/redlib:latest
+    container_name: redlib
+    restart: unless-stopped
+    environment:
+      - REDLIB_ROBOTS_DISABLE_INDEXING=on
+      - REDLIB_DEFAULT_THEME=system
+      - REDLIB_ARTI_PATH=/tmp/arti
+      - REDLIB_FULL_URL=https://redlib.tinkdeck.com
+    tmpfs:
+      - /tmp/arti
+    expose:
+      - "8080"

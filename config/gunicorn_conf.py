@@ -35,9 +35,6 @@ workers = max(int(math.floor(GIGS_OF_MEMORY * 2)), 3)
 if workers > 16:
     workers = 16
 
-if os.environ.get("DOCKERBUILD", False):
-    workers = 2
-    reload = True
 
 # If hostname has staging in it, only 2 workers and higher max_requests
 # since health checks from 3 haproxy backends (every 1s each) burn through
