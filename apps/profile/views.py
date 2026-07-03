@@ -8,6 +8,7 @@ and account import/export (OPML).
 import calendar
 import datetime
 import json as python_json
+import os
 import re
 from urllib.parse import urlencode
 
@@ -23,7 +24,7 @@ from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.core.mail import mail_admins
 from django.db.models.aggregates import Sum
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
@@ -178,6 +179,9 @@ def login(request):
 
 @csrf_exempt
 def signup(request):
+    if os.environ.get("NEWSBLUR_DISABLE_SIGNUPS", "").lower() in {"1", "true", "yes"}:
+        raise Http404
+
     form = SignupForm(prefix="signup")
     recaptcha = request.POST.get("g-recaptcha-response", None)
     recaptcha_error = None
@@ -447,26 +451,14 @@ def find_paypal_user(data, custom_field="custom_id"):
         except (User.DoesNotExist, ValueError):
             pass
 
-    # Fallback 1: Look up by subscription ID in PaypalIds.
-    # Use filter() rather than get() because duplicate PaypalIds rows can share
-    # a paypal_sub_id (e.g. retried webhooks). If duplicates all belong to the
-    # same user we can safely return that user; if they span multiple users the
-    # match is ambiguous and we fall through rather than risk applying a webhook
-    # to the wrong account.
+    # Fallback 1: Look up by subscription ID in PaypalIds
     sub_id = resource.get("id") or resource.get("billing_agreement_id")
     if sub_id:
-        paypal_ids = list(PaypalIds.objects.filter(paypal_sub_id=sub_id).select_related("user"))
-        distinct_user_ids = {p.user_id for p in paypal_ids if p.user_id}
-        if len(distinct_user_ids) > 1:
-            logging.user(
-                None,
-                f" ~FR~SBPayPal webhook: multiple users share paypal_sub_id={sub_id} "
-                f"users={sorted(distinct_user_ids)} - skipping PaypalIds lookup",
-            )
-        elif paypal_ids:
-            paypal_id = max(paypal_ids, key=lambda p: p.id)
-            if paypal_id.user:
-                return paypal_id.user
+        try:
+            paypal_id = PaypalIds.objects.get(paypal_sub_id=sub_id)
+            return paypal_id.user
+        except PaypalIds.DoesNotExist:
+            pass
 
     # Fallback 2: Look up by subscriber email
     subscriber = resource.get("subscriber", {})

@@ -10,6 +10,7 @@ import concurrent
 import datetime
 import hashlib
 import http.client
+import os
 import random
 import re
 import socket
@@ -156,6 +157,7 @@ BANNED_URLS = [
 ALLOWED_SUBDOMAINS = [
     "dev",
     "www",
+    "news",
     "hwww",
     "dwww",
     # 'beta',  # Comment to redirect beta -> www, uncomment to allow beta -> staging (+ dns changes)
@@ -362,6 +364,7 @@ def welcome(request, **kwargs):
         "user_profile": hasattr(user, "profile") and user.profile,
         "login_form": login_form,
         "signup_form": signup_form,
+        "signups_disabled": os.environ.get("NEWSBLUR_DISABLE_SIGNUPS", "").lower() in {"1", "true", "yes"},
         "statistics": statistics,
         "social_profile": social_profile,
         "post_request": request.method == "POST",
@@ -397,6 +400,9 @@ def login(request):
 @never_cache
 @render_to("accounts/signup.html")
 def signup(request):
+    if os.environ.get("NEWSBLUR_DISABLE_SIGNUPS", "").lower() in {"1", "true", "yes"}:
+        raise Http404
+
     if request.method == "POST":
         if settings.ENFORCE_SIGNUP_CAPTCHA:
             signup_form = SignupForm(request.POST, prefix="signup")
@@ -2430,9 +2436,6 @@ def load_river_stories__redis(request):
     page = int(get_post.get("page", 1))
     order = get_post.get("order", "newest")
     read_filter = get_post.get("read_filter", "unread")
-    if page > 400 and not story_hashes:
-        logging.user(request, "~BR~FK~SBOver page 400 on river stories: %s" % page)
-        raise Http404
     date_filter_start = get_post.get("date_filter_start")
     date_filter_end = get_post.get("date_filter_end")
     # Sanitize date filters - JS sends "null" as a string
@@ -2592,28 +2595,15 @@ def load_river_stories__redis(request):
             stories = Feed.format_stories(mstories)
             unread_feed_story_hashes = None
         else:
-            requested_feed_ids = list(feed_ids)
-            if read_filter == "unread":
-                cache_usersubs = UserSubscription.subs_for_feeds(
-                    user.pk, feed_ids=requested_feed_ids, read_filter="all"
-                )
-                cache_feed_ids = [sub.feed_id for sub in cache_usersubs]
-            else:
-                cache_feed_ids = []
             usersubs = UserSubscription.subs_for_feeds(user.pk, feed_ids=feed_ids, read_filter=read_filter)
             feed_ids = [sub.feed_id for sub in usersubs]
-            if not cache_feed_ids:
-                cache_feed_ids = [sub.feed_id for sub in usersubs]
             feed_ids = Feed.exclude_briefing_feeds(feed_ids)
-            cache_feed_ids = Feed.exclude_briefing_feeds(cache_feed_ids)
             if infrequent:
                 feed_ids = Feed.low_volume_feeds(feed_ids, stories_per_month=infrequent)
-                cache_feed_ids = Feed.low_volume_feeds(cache_feed_ids, stories_per_month=infrequent)
             if feed_ids:
                 params = {
                     "user_id": user.pk,
                     "feed_ids": feed_ids,
-                    "all_feed_ids": cache_feed_ids,
                     "offset": offset,
                     "limit": limit,
                     "order": order,
@@ -5635,7 +5625,6 @@ def load_trending_stories(request):
     )
 
     user_is_pro = user.profile.is_pro
-    prompt_data = get_prompt_scores_or_queue(user, stories, feed_ids=story_feed_ids)
 
     # Look up starred stories
     story_hash_list = [s["story_hash"] for s in stories]
@@ -5706,9 +5695,7 @@ def load_trending_stories(request):
                 if user_is_pro
                 else 0
             ),
-            "prompt": prompt_data["scores"].get(story["story_hash"], 0),
         }
-        story["prompt_classifiers"] = prompt_data["details"].get(story["story_hash"], [])
         story["score"] = UserSubscription.score_story(story["intelligence"])
 
     type_label = "long reads" if trending_type == "long_reads" else "widely-read"

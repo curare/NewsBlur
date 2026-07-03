@@ -1,5 +1,6 @@
 import logging
 import os
+from urllib.parse import urlparse
 
 # ===================
 # = Server Settings =
@@ -180,6 +181,8 @@ NEWSBLUR_URL = os.getenv("NEWSBLUR_URL", "https://localhost")
 
 if NEWSBLUR_URL == "https://localhost":
     SESSION_COOKIE_DOMAIN = "localhost"
+else:
+    SESSION_COOKIE_DOMAIN = os.getenv("SESSION_COOKIE_DOMAIN") or urlparse(NEWSBLUR_URL).hostname
 
 SESSION_ENGINE = "redis_sessions.session"
 

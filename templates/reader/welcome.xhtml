@@ -87,6 +87,30 @@
             </div>
 
             <div class="NB-welcome-header-formcard">
+                {% if signups_disabled %}
+                <div class="NB-formcard-panel NB-formcard-login NB-active">
+                    <form method="post" action="{% url "welcome-login" %}">
+                        {% csrf_token %}
+                        <div class="NB-formcard-field">
+                            {{ login_form.username }}
+                        </div>
+                        <div class="NB-formcard-field">
+                            {{ login_form.password }}
+                        </div>
+                        {{ login_form.add }}
+                        <input name="submit" type="submit" class="NB-welcome-submit-button" value="log in" />
+                        <input type="hidden" name="next" value="/" />
+                    </form>
+                    {% if login_form.errors %}
+                        <div class="NB-formcard-errors">
+                            {% for field, error in login_form.errors.items %}
+                                {{ error|safe }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <a href="{% url "profile-forgot-password" %}" class="NB-welcome-forgot">Forgot password?</a>
+                </div>
+                {% else %}
                 <div class="NB-welcome-header-segment {% if post_request and signup_form.errors %}NB-segment-right{% endif %}">
                     <div class="NB-segment-option NB-segment-login {% if not post_request or login_form.errors %}NB-active{% endif %}">Log In</div>
                     <div class="NB-segment-option NB-segment-signup {% if post_request and signup_form.errors %}NB-active{% endif %}">Sign Up</div>
@@ -138,6 +162,7 @@
                         </div>
                     {% endif %}
                 </div>
+                {% endif %}
             </div>
         </div>
     </div>
