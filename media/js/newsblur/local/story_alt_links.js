@@ -6,22 +6,12 @@
 
     var providers = [
         {
-            id: "archive",
-            title: "Open in Archive",
-            build_url: function (url) {
-                return "https://archive.is/?run=1&url=" + encodeURIComponent(url);
-            },
-            matches: function (url) {
-                return /^https?:\/\//i.test(url);
-            }
-        },
-        {
-            id: "redlib",
-            title: "Open in Redlib",
+            id: "oldreddit",
+            title: "Open in OldReddit",
             build_url: function (url) {
                 var parsed = parse_url(url);
                 if (!parsed) return null;
-                return "https://redlib.tinkdeck.com" + parsed.pathname + parsed.search + parsed.hash;
+                return "https://old.reddit.com" + parsed.pathname + parsed.search + parsed.hash;
             },
             matches: function (url) {
                 var parsed = parse_url(url);

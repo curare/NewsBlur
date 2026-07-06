@@ -54,16 +54,3 @@ services:
       - "443:443"
       - "127.0.0.1:1936:1936"
 
-  redlib:
-    image: git.ptr.moe/baalajimaestro/redlib:latest
-    container_name: redlib
-    restart: unless-stopped
-    environment:
-      - REDLIB_ROBOTS_DISABLE_INDEXING=on
-      - REDLIB_DEFAULT_THEME=system
-      - REDLIB_ARTI_PATH=/tmp/arti
-      - REDLIB_FULL_URL=https://redlib.tinkdeck.com
-    tmpfs:
-      - /tmp/arti
-    expose:
-      - "8080"
