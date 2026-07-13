@@ -1,0 +1,47 @@
+--- a/media/js/newsblur/reader/reader_preferences.js
++++ b/media/js/newsblur/reader/reader_preferences.js
+
+CHANGE 1: Add UI block after the existing "Open links" (NB-preference-window) block.
+Find this pattern:
+    $.make('div', { className: 'NB-preference-label' }, [
+        'Open links'
+    ])
+]),
+
+Insert immediately after it:
+    $.make('div', { className: 'NB-preference NB-preference-openoriginal' }, [
+        $.make('div', { className: 'NB-preference-options' }, [
+            $.make('div', [
+                $.make('input', { id: 'NB-preference-openoriginal-0', type: 'radio', name: 'open_original_on_click', value: "false" }),
+                $.make('label', { 'for': 'NB-preference-openoriginal-0' }, [
+                    'Expand story in reading pane'
+                ])
+            ]),
+            $.make('div', [
+                $.make('input', { id: 'NB-preference-openoriginal-1', type: 'radio', name: 'open_original_on_click', value: "true" }),
+                $.make('label', { 'for': 'NB-preference-openoriginal-1' }, [
+                    'Open original article in background tab'
+                ])
+            ])
+        ]),
+        $.make('div', { className: 'NB-preference-label' }, [
+            'Clicking a story title'
+        ])
+    ]),
+
+CHANGE 2: Add load logic in load_preferences(), after the new_window block.
+Find:
+    $('input[name=new_window]', $modal).each(function () {
+        if ($(this).val() == NEWSBLUR.Preferences.new_window) {
+            $(this).prop('checked', true);
+            return false;
+        }
+    });
+
+Insert immediately after it:
+    $('input[name=open_original_on_click]', $modal).each(function () {
+        if ($(this).val() == "" + !!NEWSBLUR.Preferences.open_original_on_click) {
+            $(this).prop('checked', true);
+            return false;
+        }
+    });

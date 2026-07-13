@@ -1,0 +1,17 @@
+--- a/newsblur_web/docker_local_settings.py
++++ b/newsblur_web/docker_local_settings.py
+@@ -1,5 +1,6 @@
+ import logging
+ import os
++from urllib.parse import urlparse
+
+ # ===================
+ # = Server Settings =
+@@ -179,6 +180,8 @@ NEWSBLUR_URL = os.getenv("NEWSBLUR_URL", "https://localhost")
+
+ if NEWSBLUR_URL == "https://localhost":
+     SESSION_COOKIE_DOMAIN = "localhost"
++else:
++    SESSION_COOKIE_DOMAIN = os.getenv("SESSION_COOKIE_DOMAIN") or urlparse(NEWSBLUR_URL).hostname
+
+ SESSION_ENGINE = "redis_sessions.session"

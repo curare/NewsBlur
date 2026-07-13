@@ -1,0 +1,12 @@
+--- a/templates/base.html
++++ b/templates/base.html
+@@ -80,6 +80,7 @@ in NEWSBLUR.Preferences defaults object
+     NEWSBLUR.Preferences = {
+       ...
+       'new_window'              : 1,
++      'open_original_on_click'  : false,
+       'default_view'            : 'feed',
+       ...
+
+NOTE: The actual line number will vary as upstream adds/removes preferences.
+Find the line with 'new_window' and insert the new preference after it.

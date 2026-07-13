@@ -31,6 +31,34 @@ Ask about:
 
 Don't assume - ask. Multiple rounds of questions are better than one large batch. Even mid-implementation, if something feels unclear or you're choosing between options, ask. The interactive back-and-forth is valuable.
 
+## tinkdeck.com Fork Management
+
+This is a private fork of NewsBlur for news.tinkdeck.com. All tinkdeck-specific customizations
+are documented in `TINKDECK.md`. Read it before making any changes to shared upstream files.
+
+**Remotes:**
+- `origin` — https://github.com/curare/NewsBlur.git (our fork, deploy target)
+- `upstream` — https://github.com/samuelclay/NewsBlur.git (official NewsBlur)
+
+**Assessing divergence from upstream:**
+```bash
+git fetch upstream
+git diff upstream/main HEAD --name-only | wc -l       # total files that differ
+git diff upstream/main HEAD --name-only               # full list
+```
+
+**Updating to a new NewsBlur release:** Follow the step-by-step process in `TINKDECK.md`
+(section "Updating from Upstream"). The short version:
+1. `git tag tinkdeck-before-$(date +%Y%m%d)` — back up current state
+2. Copy exclusive tinkdeck files to `/tmp`
+3. `git reset --hard upstream/main`
+4. Restore copied files
+5. `git apply tinkdeck/patches/*.patch` (or apply manually if context has drifted)
+6. `git commit` and `git push origin main --force-with-lease`
+
+**Adding a new customization:** See "Adding a New Customization" in `TINKDECK.md`.
+Always create a patch file in `tinkdeck/patches/` and a section in `TINKDECK.md`.
+
 ## Debugging
 
 For debugging sessions: always take a screenshot first, reproduce the issue, then form a hypothesis before changing code. Do not start editing until the root cause is identified.
