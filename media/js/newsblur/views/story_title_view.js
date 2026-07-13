@@ -743,6 +743,12 @@ NEWSBLUR.Views.StoryTitleView = Backbone.View.extend({
             return;
         }
 
+        if (NEWSBLUR.assets.preference('open_original_on_click') && !NEWSBLUR.hotkeys.command) {
+            this.model.mark_read({ skip_delay: true });
+            this.model.open_story_in_new_tab(true);
+            return;
+        }
+
         if (_.contains(['list', 'grid', 'magazine'], this.options.override_layout ||
             NEWSBLUR.assets.view_setting(NEWSBLUR.reader.active_feed, 'layout')) &&
             this.model.get('selected')) {

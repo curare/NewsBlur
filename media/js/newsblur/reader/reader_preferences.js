@@ -869,6 +869,25 @@ _.extend(NEWSBLUR.ReaderPreferences.prototype, {
                             'Open links'
                         ])
                     ]),
+                    $.make('div', { className: 'NB-preference NB-preference-openoriginal' }, [
+                        $.make('div', { className: 'NB-preference-options' }, [
+                            $.make('div', [
+                                $.make('input', { id: 'NB-preference-openoriginal-0', type: 'radio', name: 'open_original_on_click', value: "false" }),
+                                $.make('label', { 'for': 'NB-preference-openoriginal-0' }, [
+                                    'Expand story in reading pane'
+                                ])
+                            ]),
+                            $.make('div', [
+                                $.make('input', { id: 'NB-preference-openoriginal-1', type: 'radio', name: 'open_original_on_click', value: "true" }),
+                                $.make('label', { 'for': 'NB-preference-openoriginal-1' }, [
+                                    'Open original article in background tab'
+                                ])
+                            ])
+                        ]),
+                        $.make('div', { className: 'NB-preference-label' }, [
+                            'Clicking a story title'
+                        ])
+                    ]),
                     $.make('div', { className: 'NB-preference NB-preference-truncatestory' }, [
                         $.make('div', { className: 'NB-preference-options' }, [
                             $.make('div', [
@@ -1155,6 +1174,12 @@ _.extend(NEWSBLUR.ReaderPreferences.prototype, {
         });
         $('input[name=new_window]', $modal).each(function () {
             if ($(this).val() == NEWSBLUR.Preferences.new_window) {
+                $(this).prop('checked', true);
+                return false;
+            }
+        });
+        $('input[name=open_original_on_click]', $modal).each(function () {
+            if ($(this).val() == "" + !!NEWSBLUR.Preferences.open_original_on_click) {
                 $(this).prop('checked', true);
                 return false;
             }
