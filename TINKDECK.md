@@ -69,30 +69,18 @@ else:
 
 ---
 
-### 3. Redlib / Anni Reverse-Proxy Routing
+### 3. Anni Reverse-Proxy Routing
 **File:** `docker/haproxy/haproxy.docker-compose.cfg`
 **Patch:** `tinkdeck/patches/haproxy_docker_compose_routing.patch`
 
-Routes `redlib.tinkdeck.com` and `anni.tinkdeck.com` through the same HAProxy instance that
-serves NewsBlur. Redlib requires HTTP basic auth.
+Routes `anni.tinkdeck.com` through the same HAProxy instance that serves NewsBlur.
 
 Changes:
-- `userlist redlib_users` block with a bcrypt-hashed password (before `defaults`)
-- ACLs in `frontend public`: `host_redlib` and `host_anni`
-- HTTP auth enforcement: `http-request auth realm Redlib if host_redlib !{ http_auth(redlib_users) }`
-- `use_backend redlib if host_redlib` and `use_backend anni if host_anni` routing rules
-- `backend redlib` block: `server redlib redlib:8080 ...`
-- `backend anni` block: `server anni_host 172.17.0.1:8080 ...`
+- ACL in `frontend public`: `host_anni hdr(host) -i anni.tinkdeck.com`
+- `use_backend anni if host_anni` routing rule
+- `backend anni` block: `server anni_host 172.17.0.1:8080 check inter 5000ms`
 
-The `redlib` backend assumes a container named `redlib` on the Docker network.
-The `anni` backend hits the host machine on port 8080 via the Docker bridge IP.
-
-To update the redlib password, generate a new bcrypt hash:
-    python3 -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(prefix=b'2b')).decode())"
-Then replace the hash in `haproxy.docker-compose.cfg` (format: `$2b$...`).
-
-Note: HAProxy uses the `$6$` SHA-512 format in the patch above; to regenerate:
-    openssl passwd -6 yourpassword
+The `anni` backend hits the host machine on port 8080 via the Docker bridge IP (`172.17.0.1`).
 
 ---
 
