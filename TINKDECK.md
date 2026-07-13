@@ -144,93 +144,36 @@ exposes ports, configures volumes for news.tinkdeck.com).
 
 ## Updating from Upstream
 
-When a new NewsBlur version is released:
-
-### Step 1 — Assess the diff
-
 ```bash
-git fetch upstream
-
-# How many files differ?
-git diff upstream/main HEAD --name-only | wc -l
-
-# Which tinkdeck-specific files were also changed upstream?
-git diff upstream/main HEAD --name-only | grep -E \
-  "apps/profile/views.py|docker_local_settings.py|haproxy.docker-compose.cfg|base.html|reader_preferences.js|story_title_view.js"
+bash tinkdeck/update-from-upstream.sh
 ```
 
-If none of those files appear, the update is likely conflict-free.
+The script:
+1. Fetches upstream and shows how many files differ
+2. Warns if any tinkdeck-patched file was also changed upstream (potential conflict)
+3. Asks for confirmation before doing anything destructive
+4. Tags the current state (`tinkdeck-before-YYYYMMDD`) as a rollback point
+5. Saves all exclusive tinkdeck files to a temp directory
+6. Hard-resets to `upstream/main`
+7. Restores exclusive files and the `tinkdeck/` directory
+8. Runs `git apply` on every patch in `tinkdeck/patches/`
+9. Commits automatically if all patches applied cleanly, or exits with instructions if any failed
 
-### Step 2 — Back up current state
+### If a patch fails
 
-```bash
-git tag tinkdeck-before-$(date +%Y%m%d)
-```
+The script will tell you which patch(es) failed. Open `TINKDECK.md`, find the relevant
+customization section, and apply the change manually using the code snippets there. The
+patches include enough commentary to locate the correct insertion point even after upstream
+refactoring.
 
-### Step 3 — Save tinkdeck-specific files
-
-```bash
-# New/exclusive tinkdeck files — copy to a temp location
-cp deploy-vps.sh /tmp/tinkdeck-deploy-vps.sh
-cp docker-compose.vps.yml /tmp/tinkdeck-docker-compose.vps.yml
-cp media/js/newsblur/local/story_alt_links.js /tmp/tinkdeck-story_alt_links.js
-```
-
-### Step 4 — Reset to upstream
-
-```bash
-git reset --hard upstream/main
-```
-
-### Step 5 — Restore new/exclusive tinkdeck files
-
-```bash
-cp /tmp/tinkdeck-deploy-vps.sh deploy-vps.sh
-cp /tmp/tinkdeck-docker-compose.vps.yml docker-compose.vps.yml
-mkdir -p media/js/newsblur/local
-cp /tmp/tinkdeck-story_alt_links.js media/js/newsblur/local/story_alt_links.js
-```
-
-### Step 6 — Re-apply patches to shared files
-
-Work through each patch in `tinkdeck/patches/`. The `.patch` files are unified diffs;
-try `git apply` first:
-
-```bash
-git apply tinkdeck/patches/profile_disable_signups.patch
-git apply tinkdeck/patches/docker_local_settings_session_cookie.patch
-git apply tinkdeck/patches/haproxy_docker_compose_routing.patch
-git apply tinkdeck/patches/base_html_open_original_on_click.patch
-git apply tinkdeck/patches/reader_preferences_open_original_on_click.patch
-git apply tinkdeck/patches/story_title_view_open_original_on_click.patch
-```
-
-If a patch fails (upstream changed the surrounding context), open the relevant file, find the
-anchor text described in the patch, and apply the change manually. The patches include enough
-commentary to identify the correct insertion point even after significant upstream refactoring.
-
-After each apply, verify with:
-```bash
-git diff HEAD -- <file>
-```
-
-### Step 7 — Commit and push
-
+After manually fixing each failure:
 ```bash
 git add -A
-git commit -m "tinkdeck: rebase onto upstream $(git -C . describe upstream/main --tags --always)"
+git commit -m "tinkdeck: rebase onto upstream <sha>"
 git push origin main --force-with-lease
 ```
 
-### Step 8 — Update patches
-
-If any patch had to be applied manually, regenerate it from the new state so it stays
-accurate for the next update:
-
-```bash
-# For a shared file like profile/views.py — extract only the tinkdeck-specific hunk:
-# (edit the patch file manually to reflect the new context lines)
-```
+Then update the failed patch file so it applies cleanly next time.
 
 ---
 

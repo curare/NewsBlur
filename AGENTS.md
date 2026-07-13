@@ -47,14 +47,11 @@ git diff upstream/main HEAD --name-only | wc -l       # total files that differ
 git diff upstream/main HEAD --name-only               # full list
 ```
 
-**Updating to a new NewsBlur release:** Follow the step-by-step process in `TINKDECK.md`
-(section "Updating from Upstream"). The short version:
-1. `git tag tinkdeck-before-$(date +%Y%m%d)` — back up current state
-2. Copy exclusive tinkdeck files to `/tmp`
-3. `git reset --hard upstream/main`
-4. Restore copied files
-5. `git apply tinkdeck/patches/*.patch` (or apply manually if context has drifted)
-6. `git commit` and `git push origin main --force-with-lease`
+**Updating to a new NewsBlur release:**
+```bash
+bash tinkdeck/update-from-upstream.sh
+```
+See `TINKDECK.md` → "Updating from Upstream" for what the script does and how to handle patch failures.
 
 **Adding a new customization:** See "Adding a New Customization" in `TINKDECK.md`.
 Always create a patch file in `tinkdeck/patches/` and a section in `TINKDECK.md`.
