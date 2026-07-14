@@ -743,8 +743,8 @@ NEWSBLUR.Views.StoryTitleView = Backbone.View.extend({
             return;
         }
 
-        if (NEWSBLUR.assets.preference('open_original_on_click') && !NEWSBLUR.hotkeys.command) {
-            this.model.mark_read({ skip_delay: true });
+        if (NEWSBLUR.assets.preference('open_original_on_click') && !NEWSBLUR.hotkeys.command &&
+            !this.options.on_discover_feed && !this.options.on_discover_story) {
             this.model.open_story_in_new_tab(true);
             return;
         }

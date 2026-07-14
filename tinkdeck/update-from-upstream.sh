@@ -153,7 +153,7 @@ PATCH_FAIL=()
 
 for patch in tinkdeck/patches/*.patch; do
     # Skip annotated-instruction patches (they're not valid unified diffs)
-    if grep -q "^NOTE:\|^CHANGE [0-9]\|^Find this\|^Insert" "$patch" 2>/dev/null; then
+    if grep -q "^NOTE:\|^CHANGE [0-9]\|^Find this\|^Insert\|^Add " "$patch" 2>/dev/null; then
         warn "$(basename "$patch") is an instruction patch — apply manually (see TINKDECK.md)"
         PATCH_FAIL+=("$patch")
         continue
