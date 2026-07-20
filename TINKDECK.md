@@ -142,6 +142,52 @@ exposes ports, configures volumes for news.tinkdeck.com).
 
 ---
 
+## Downtime / Ops Playbook
+
+**`DOWNTIME.md` in the repo root does not apply to this deployment.** It documents the
+health-check playbook for upstream NewsBlur's own production cluster — dozens of Hetzner
+servers (`happ-web-*`, `htask-*`, `hdb-*`, etc.) managed via `ansible/inventories/hetzner.ini`
+and `utils/check_health.sh`. news.tinkdeck.com is a single OVH VPS running the whole stack as
+one Docker Compose project. Don't run `check_health.sh` or SSH to any `happ-*`/`htask-*`/`hdb-*`
+hostname for tinkdeck issues — there's nothing there.
+
+### Access
+
+```bash
+ssh ovh                              # alias to the OVH VPS (15.204.252.225)
+cd /opt/tinkdeck/NewsBlur             # project root on the server
+sudo docker ps                       # container status/uptime
+sudo docker compose restart <name>   # restart one service (see `docker compose config --services`)
+```
+
+Containers: `newsblur_haproxy`, `newsblur_web`, `newsblur_nginx`, `newsblur_node`,
+`newsblur_db_postgres`, `newsblur_db_mongo`, `newsblur_db_redis`, `newsblur_db_elasticsearch`,
+`newsblur_celery`, `newsblur_mcp`, `newsblur_imageproxy`, `newsblur_dejavu`.
+
+Deploy code changes with `./deploy-vps.sh` from the repo root (pushes, then pulls + recreates
+containers on the server).
+
+### First checks for "site is down"
+
+```bash
+sudo docker ps --format 'table {{.Names}}\t{{.Status}}'   # any container restarting/unhealthy?
+uptime; free -h; df -h /                                   # load, memory, disk
+sudo ss -tn state established '( sport = :443 or sport = :80 )' | wc -l   # connection count
+```
+
+If all of that looks clean but a user reports the page hanging/blank in their actual browser —
+**stop testing with curl.** A single curl request to `/` proves nothing about real page load:
+it never fetches referenced sub-resources, executes JS, or hits render-blocking `<link>` tags.
+Get real client-side timing instead — either have the user check DevTools → Network, or drive
+a real browser directly (`mcp__claude-in-chrome__*` tools) and read
+`performance.getEntriesByType('resource')`. This is how the 2026-07-20 outage was actually
+diagnosed: curl was fast the entire time; the real cause was a render-blocking third-party font
+stylesheet (`cloud.typography.com`, see `templates/base.html`) whose CDN had gone unreachable,
+freezing every real browser's page load for minutes. No amount of server-side/DNS/CDN
+investigation would have found that — it only showed up in browser resource timing.
+
+---
+
 ## Updating from Upstream
 
 ```bash
