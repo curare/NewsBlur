@@ -18,6 +18,14 @@ class LastSeenMiddleware(object):
     def __init__(self, get_response=None):
         self.get_response = get_response
 
+    def process_request(self, request):
+        if (
+            settings.NEWSBLUR_SELF_HOSTED_PREMIUM
+            and hasattr(request, "user")
+            and request.user.is_authenticated
+        ):
+            request.user.profile.enable_self_hosted_premium()
+
     def process_response(self, request, response):
         if (
             (

@@ -2,6 +2,7 @@ services:
   newsblur_web:
     environment:
       - NEWSBLUR_DISABLE_SIGNUPS=true
+      - NEWSBLUR_SELF_HOSTED_PREMIUM=true
       - NEWSBLUR_URL=https://news.tinkdeck.com
     ports: !override
       - "127.0.0.1:8000:8000"

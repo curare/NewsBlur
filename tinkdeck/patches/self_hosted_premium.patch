@@ -1,0 +1,172 @@
+diff --git a/apps/profile/middleware.py b/apps/profile/middleware.py
+index a17494ff9..fd489cfd8 100644
+--- a/apps/profile/middleware.py
++++ b/apps/profile/middleware.py
+@@ -18,6 +18,14 @@ class LastSeenMiddleware(object):
+     def __init__(self, get_response=None):
+         self.get_response = get_response
+ 
++    def process_request(self, request):
++        if (
++            settings.NEWSBLUR_SELF_HOSTED_PREMIUM
++            and hasattr(request, "user")
++            and request.user.is_authenticated
++        ):
++            request.user.profile.enable_self_hosted_premium()
++
+     def process_response(self, request, response):
+         if (
+             (
+
+diff --git a/apps/profile/models.py b/apps/profile/models.py
+index 65d736053..900ecf064 100644
+--- a/apps/profile/models.py
++++ b/apps/profile/models.py
+@@ -348,6 +348,26 @@ class Profile(models.Model):
+             "dashboard_date": self.dashboard_date,
+         }
+ 
++    def enable_self_hosted_premium(self):
++        if not settings.NEWSBLUR_SELF_HOSTED_PREMIUM:
++            return
++
++        tier_fields = {
++            "is_premium": True,
++            "is_archive": True,
++            "is_pro": True,
++            "is_premium_trial": False,
++            "premium_expire": None,
++            "premium_renewal": False,
++        }
++        changed_fields = [name for name, value in tier_fields.items() if getattr(self, name) != value]
++        if not changed_fields:
++            return
++
++        for name in changed_fields:
++            setattr(self, name, tier_fields[name])
++        self.save(update_fields=changed_fields)
++
+     def save(self, *args, **kwargs):
+         if not self.secret_token:
+             self.secret_token = generate_secret_token(self.user.username, 12)
+@@ -3594,20 +3614,29 @@ class GooglePlayIds(models.Model):
+ 
+ def create_profile(sender, instance, created, **kwargs):
+     if created:
+-        from apps.profile.tasks import EmailNewPremiumTrial
++        if settings.NEWSBLUR_SELF_HOSTED_PREMIUM:
++            Profile.objects.create(
++                user=instance,
++                is_premium=True,
++                is_archive=True,
++                is_pro=True,
++                is_premium_trial=False,
++            )
++        else:
++            from apps.profile.tasks import EmailNewPremiumTrial
+ 
+-        now = datetime.datetime.now()
+-        profile = Profile.objects.create(
+-            user=instance,
+-            is_premium=True,
+-            is_premium_trial=True,
+-            premium_expire=now + datetime.timedelta(days=30),
+-        )
+-        EmailNewPremiumTrial.delay(user_id=instance.pk)
+-        logging.user(
+-            instance,
+-            "~BY~SK~FW~SBNEW USER WITH PREMIUM TRIAL! Expires %s~SN" % profile.premium_expire,
+-        )
++            now = datetime.datetime.now()
++            profile = Profile.objects.create(
++                user=instance,
++                is_premium=True,
++                is_premium_trial=True,
++                premium_expire=now + datetime.timedelta(days=30),
++            )
++            EmailNewPremiumTrial.delay(user_id=instance.pk)
++            logging.user(
++                instance,
++                "~BY~SK~FW~SBNEW USER WITH PREMIUM TRIAL! Expires %s~SN" % profile.premium_expire,
++            )
+     else:
+         Profile.objects.get_or_create(user=instance)
+
+diff --git a/newsblur_web/settings.py b/newsblur_web/settings.py
+index 14f42ac57..1e8eda426 100644
+--- a/newsblur_web/settings.py
++++ b/newsblur_web/settings.py
+@@ -53,6 +53,9 @@ SERVER_NAME = "newsblur"
+ SERVER_EMAIL = "server@newsblur.com"
+ HELLO_EMAIL = "hello@newsblur.com"
+ NEWSBLUR_URL = "https://www.newsblur.com"
++NEWSBLUR_SELF_HOSTED_PREMIUM = (
++    os.environ.get("NEWSBLUR_SELF_HOSTED_PREMIUM", "").lower() in {"1", "true", "yes"}
++)
+ IMAGES_URL = "https://imageproxy.newsblur.com"
+ PUSH_DOMAIN = "push.newsblur.com"
+ SECRET_KEY = "YOUR_SECRET_KEY"
+diff --git a/apps/profile/test_profile.py b/apps/profile/test_profile.py
+index 27655df23..bccabd6f7 100644
+--- a/apps/profile/test_profile.py
++++ b/apps/profile/test_profile.py
+@@ -1,12 +1,14 @@
+ import datetime
++from types import SimpleNamespace
+ from unittest.mock import MagicMock, call, patch
+ 
+ from django.conf import settings
+ from django.contrib.auth.models import User
+-from django.test import TestCase
++from django.test import TestCase, override_settings
+ from django.test.client import Client
+ from django.urls import reverse
+ 
++from apps.profile.middleware import LastSeenMiddleware
+ from apps.profile.models import PaymentHistory, Profile, StripeIds
+ from utils import json_functions as json
+ 
+@@ -40,6 +42,43 @@ class Test_Profile(TestCase):
+         self.assertEquals(response["authenticated"], True)
+ 
+ 
++class Test_SelfHostedPremium(TestCase):
++    @patch("apps.profile.tasks.EmailNewPremiumTrial.delay")
++    @override_settings(NEWSBLUR_SELF_HOSTED_PREMIUM=True)
++    def test_new_users_receive_local_pro_tier_without_trial_email(self, mock_trial_email):
++        user = User.objects.create_user(username="selfhosted", password="password")
++
++        profile = user.profile
++        self.assertTrue(profile.is_premium)
++        self.assertTrue(profile.is_archive)
++        self.assertTrue(profile.is_pro)
++        self.assertFalse(profile.is_premium_trial)
++        self.assertIsNone(profile.premium_expire)
++        mock_trial_email.assert_not_called()
++
++    @patch("apps.profile.tasks.EmailNewPremiumTrial.delay")
++    @override_settings(NEWSBLUR_SELF_HOSTED_PREMIUM=True)
++    def test_authenticated_request_promotes_existing_profile(self, mock_trial_email):
++        user = User.objects.create_user(username="existing-selfhosted", password="password")
++        profile = user.profile
++        profile.is_premium = False
++        profile.is_archive = False
++        profile.is_pro = False
++        profile.save()
++
++        request = SimpleNamespace(user=user)
++        LastSeenMiddleware(lambda request: None).process_request(request)
++
++        profile.refresh_from_db()
++        self.assertTrue(profile.is_premium)
++        self.assertTrue(profile.is_archive)
++        self.assertTrue(profile.is_pro)
++        self.assertFalse(profile.is_premium_trial)
++        self.assertIsNone(profile.premium_expire)
++        self.assertFalse(profile.premium_renewal)
++        mock_trial_email.assert_not_called()
++
++
+ class Test_TierProtection(TestCase):
+     def setUp(self):
+         self.user = User.objects.create_user(username="tiertest", password="password", email="tier@test.com")

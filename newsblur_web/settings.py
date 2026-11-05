@@ -53,6 +53,9 @@ SERVER_NAME = "newsblur"
 SERVER_EMAIL = "server@newsblur.com"
 HELLO_EMAIL = "hello@newsblur.com"
 NEWSBLUR_URL = "https://www.newsblur.com"
+NEWSBLUR_SELF_HOSTED_PREMIUM = (
+    os.environ.get("NEWSBLUR_SELF_HOSTED_PREMIUM", "").lower() in {"1", "true", "yes"}
+)
 IMAGES_URL = "https://imageproxy.newsblur.com"
 PUSH_DOMAIN = "push.newsblur.com"
 SECRET_KEY = "YOUR_SECRET_KEY"

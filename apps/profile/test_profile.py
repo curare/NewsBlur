@@ -1,12 +1,14 @@
 import datetime
+from types import SimpleNamespace
 from unittest.mock import MagicMock, call, patch
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.test.client import Client
 from django.urls import reverse
 
+from apps.profile.middleware import LastSeenMiddleware
 from apps.profile.models import PaymentHistory, Profile, StripeIds
 from utils import json_functions as json
 
@@ -38,6 +40,43 @@ class Test_Profile(TestCase):
         resp = self.client.get(reverse("load-feeds"))
         response = json.decode(resp.content)
         self.assertEquals(response["authenticated"], True)
+
+
+class Test_SelfHostedPremium(TestCase):
+    @patch("apps.profile.tasks.EmailNewPremiumTrial.delay")
+    @override_settings(NEWSBLUR_SELF_HOSTED_PREMIUM=True)
+    def test_new_users_receive_local_pro_tier_without_trial_email(self, mock_trial_email):
+        user = User.objects.create_user(username="selfhosted", password="password")
+
+        profile = user.profile
+        self.assertTrue(profile.is_premium)
+        self.assertTrue(profile.is_archive)
+        self.assertTrue(profile.is_pro)
+        self.assertFalse(profile.is_premium_trial)
+        self.assertIsNone(profile.premium_expire)
+        mock_trial_email.assert_not_called()
+
+    @patch("apps.profile.tasks.EmailNewPremiumTrial.delay")
+    @override_settings(NEWSBLUR_SELF_HOSTED_PREMIUM=True)
+    def test_authenticated_request_promotes_existing_profile(self, mock_trial_email):
+        user = User.objects.create_user(username="existing-selfhosted", password="password")
+        profile = user.profile
+        profile.is_premium = False
+        profile.is_archive = False
+        profile.is_pro = False
+        profile.save()
+
+        request = SimpleNamespace(user=user)
+        LastSeenMiddleware(lambda request: None).process_request(request)
+
+        profile.refresh_from_db()
+        self.assertTrue(profile.is_premium)
+        self.assertTrue(profile.is_archive)
+        self.assertTrue(profile.is_pro)
+        self.assertFalse(profile.is_premium_trial)
+        self.assertIsNone(profile.premium_expire)
+        self.assertFalse(profile.premium_renewal)
+        mock_trial_email.assert_not_called()
 
 
 class Test_TierProtection(TestCase):

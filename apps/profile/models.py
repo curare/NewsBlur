@@ -348,6 +348,26 @@ class Profile(models.Model):
             "dashboard_date": self.dashboard_date,
         }
 
+    def enable_self_hosted_premium(self):
+        if not settings.NEWSBLUR_SELF_HOSTED_PREMIUM:
+            return
+
+        tier_fields = {
+            "is_premium": True,
+            "is_archive": True,
+            "is_pro": True,
+            "is_premium_trial": False,
+            "premium_expire": None,
+            "premium_renewal": False,
+        }
+        changed_fields = [name for name, value in tier_fields.items() if getattr(self, name) != value]
+        if not changed_fields:
+            return
+
+        for name in changed_fields:
+            setattr(self, name, tier_fields[name])
+        self.save(update_fields=changed_fields)
+
     def save(self, *args, **kwargs):
         if not self.secret_token:
             self.secret_token = generate_secret_token(self.user.username, 12)
@@ -3594,20 +3614,29 @@ class GooglePlayIds(models.Model):
 
 def create_profile(sender, instance, created, **kwargs):
     if created:
-        from apps.profile.tasks import EmailNewPremiumTrial
+        if settings.NEWSBLUR_SELF_HOSTED_PREMIUM:
+            Profile.objects.create(
+                user=instance,
+                is_premium=True,
+                is_archive=True,
+                is_pro=True,
+                is_premium_trial=False,
+            )
+        else:
+            from apps.profile.tasks import EmailNewPremiumTrial
 
-        now = datetime.datetime.now()
-        profile = Profile.objects.create(
-            user=instance,
-            is_premium=True,
-            is_premium_trial=True,
-            premium_expire=now + datetime.timedelta(days=30),
-        )
-        EmailNewPremiumTrial.delay(user_id=instance.pk)
-        logging.user(
-            instance,
-            "~BY~SK~FW~SBNEW USER WITH PREMIUM TRIAL! Expires %s~SN" % profile.premium_expire,
-        )
+            now = datetime.datetime.now()
+            profile = Profile.objects.create(
+                user=instance,
+                is_premium=True,
+                is_premium_trial=True,
+                premium_expire=now + datetime.timedelta(days=30),
+            )
+            EmailNewPremiumTrial.delay(user_id=instance.pk)
+            logging.user(
+                instance,
+                "~BY~SK~FW~SBNEW USER WITH PREMIUM TRIAL! Expires %s~SN" % profile.premium_expire,
+            )
     else:
         Profile.objects.get_or_create(user=instance)
 
