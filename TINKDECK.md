@@ -139,6 +139,7 @@ reset. They should never conflict.
 `deploy-vps.sh` — one-shot deploy script for the OVH/CloudPanel VPS.
 `docker-compose.vps.yml` — docker-compose override for VPS production (sets env vars,
 exposes ports, configures volumes for news.tinkdeck.com).
+HAProxy binds to `127.0.0.1:8081` and `127.0.0.1:8443`; CloudPanel owns public ports 80 and 443.
 
 ### 7. Self-hosted Premium Access
 **Files:** `apps/profile/models.py`, `apps/profile/middleware.py`, `newsblur_web/settings.py`,
